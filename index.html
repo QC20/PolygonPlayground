@@ -30,11 +30,11 @@
     <div class="container">
       <canvas id="canvas"></canvas>
     </div>
-    <script>
+    <script type="module">
       import * as CANNON from "https://cdn.skypack.dev/cannon-es";
-      import * as THREE from "three";
-      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-      import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+      import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js";
+      import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/controls/OrbitControls.js";
+      import { RoundedBoxGeometry } from "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/geometries/RoundedBoxGeometry.js";
 
       const canvasEl = document.querySelector("#canvas");
       const containerEl = document.querySelector(".container");
@@ -214,17 +214,5 @@
         renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
       }
     </script>
-        <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
-        defer
-      ></script>
-      <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"
-        defer
-      ></script>
-      <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"
-        defer
-      ></script>
   </body>
 </html>
