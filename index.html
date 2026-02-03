@@ -170,14 +170,17 @@
           allowSleep: true,
           gravity: new CANNON.Vec3(0, -params.gravity, 0),
         });
-        physicsWorld.defaultContactMaterial.friction = 0.1;
-        physicsWorld.defaultContactMaterial.restitution = 0.9;
+        if (physicsWorld.defaultContactMaterial) {
+          physicsWorld.defaultContactMaterial.friction = 0.1;
+          physicsWorld.defaultContactMaterial.restitution = 0.9;
+        }
       }
 
       function render() {
         orbit.update();
 
-        physicsWorld.fixedStep();
+        // advance physics by a fixed timestep
+        physicsWorld.step(1 / 60);
 
         for (let i = 0; i < params.boxesNumber; i++) {
           dummy.position.copy(boxesBodies[i].position);
