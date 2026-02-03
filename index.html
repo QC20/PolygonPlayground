@@ -149,6 +149,14 @@
               )
             ),
           });
+
+          // Spawn each box at a random position inside the container
+          boxesBodies[i].position.set(
+            (Math.random() - 0.5) * params.containerSize,
+            (Math.random() - 0.5) * params.containerSize,
+            (Math.random() - 0.5) * params.containerSize
+          );
+
           physicsWorld.addBody(boxesBodies[i]);
         }
 
