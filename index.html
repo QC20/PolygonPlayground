@@ -36,8 +36,112 @@
             "three/addons/": "https://unpkg.com/three@0.145.0/examples/jsm/",
             "cannon-es": "https://cdn.skypack.dev/cannon-es"
         }
-    }
+
+        boxMaterial = new THREE.MeshBasicMaterial({
+          color: 0x000000,
+          visible: false,
+        });
+        const boxGeometry = new RoundedBoxGeometry(
+          params.boxSize,
+          params.boxSize,
+          params.boxSize,
+          2,
+          0.2 * params.boxSize
+        );
+
+        instancedBoxesMesh = new THREE.InstancedMesh(
+          boxGeometry,
+          boxMaterial,
+          params.boxesNumber
+        );
+        scene.add(instancedBoxesMesh);
+
+        for (let i = 0; i < params.boxesNumber; i++) {
+          boxesBodies[i] = new CANNON.Body({
+            mass: 1,
+            shape: new CANNON.Box(
+              new CANNON.Vec3(
+                0.6 * params.boxSize,
+                0.6 * params.boxSize,
+                0.6 * params.boxSize
+              )
+            ),
+          });
+
+          // Spawn each box at a random position inside the container
+          boxesBodies[i].position.set(
+            (Math.random() - 0.5) * params.containerSize,
+            (Math.random() - 0.5) * params.containerSize,
+            (Math.random() - 0.5) * params.containerSize
+          );
+
+          physicsWorld.addBody(boxesBodies[i]);
+        }
+
+        const wallGeometry = new THREE.BoxGeometry(
+          params.containerSize,
+          params.containerSize,
+          params.containerSize
+        );
+        const wallEdges = new THREE.EdgesGeometry(wallGeometry);
+        const wallLine = new THREE.LineSegments(
+          wallEdges,
+          new THREE.LineBasicMaterial({ color: 0x000000 })
+        );
+        scene.add(wallLine);
+      }
+
+      function initPhysics() {
+        physicsWorld = new CANNON.World({
+          allowSleep: true,
+          gravity: new CANNON.Vec3(0, -params.gravity, 0),
+        });
+        if (physicsWorld.defaultContactMaterial) {
+          physicsWorld.defaultContactMaterial.friction = 0.1;
+          physicsWorld.defaultContactMaterial.restitution = 0.9;
+        }
+      }
+
+      function render() {
+        orbit.update();
+
+        // advance physics by a fixed timestep
+        physicsWorld.step(1 / 60);
+
+        for (let i = 0; i < params.boxesNumber; i++) {
+          dummy.position.copy(boxesBodies[i].position);
+          dummy.quaternion.copy(boxesBodies[i].quaternion);
+          dummy.updateMatrix();
+          instancedBoxesMesh.setMatrixAt(i, dummy.matrix);
+        }
+        instancedBoxesMesh.instanceMatrix.needsUpdate = true;
+
+        const gravity = new THREE.Vector3(0, -params.gravity, 0);
+        gravity.applyQuaternion(camera.quaternion);
+        physicsWorld.gravity = new CANNON.Vec3(gravity.x, gravity.y, gravity.z);
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(render);
+      }
+
+      function throwBoxes() {
+        boxesBodies.forEach((body) => {
+          const force = 7;
+          body.applyImpulse(
+            new CANNON.Vec3(
+              Math.random() > 0.5 ? -force : force,
+              Math.random() > 0.5 ? -force : force,
+              Math.random() > 0.5 ? -force : force
+            )
+          );
+        });
+      }
+
+      function updateSceneSize() {
+        camera.aspect = containerEl.clientWidth / containerEl.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
+      }
     </script>
-    <script type="module" src="src/javascript/sketch.js"></script>
-</body>
+  </body>
 </html>
