@@ -1,143 +1,149 @@
-let scene, camera, renderer, world;
-let boxes = [], boxMeshes = [];
+import * as CANNON from "cannon-es";
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+
+const canvasEl = document.querySelector("#canvas");
+const containerEl = document.querySelector(".container");
+
+let renderer, scene, camera, orbit, physicsWorld, boxMaterial, dummy, instancedBoxesMesh, boxesBodies = [];
 
 const params = {
-    boxesNumber: 50,
-    boxSize: 0.2,
-    containerSize: 10,
-    gravity: 9.82,
-    throwForce: 15
+    boxesNumber: 100,
+    boxSize: .03,
+    containerSize: 1,
+    gravity: 10
 };
 
-function init() {
-    // Three.js setup
+initPhysics();
+initScene();
+throwBoxes();
+
+boxMaterial.visible = true;
+render();
+
+window.addEventListener("resize", updateSceneSize);
+containerEl.addEventListener("dblclick", throwBoxes);
+
+function initScene() {
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        canvas: canvasEl
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    scene.background = new THREE.Color(0xffffff);
 
-    // Cannon.js setup
-    world = new CANNON.World();
-    world.gravity.set(0, -params.gravity, 0);
+    camera = new THREE.PerspectiveCamera(45, containerEl.clientWidth / containerEl.clientHeight, .1, 100)
+    camera.position.set(0, 1, .5).multiplyScalar(5);
 
-    createContainer();
-    createBoxes();
+    updateSceneSize();
 
-    camera.position.set(0, 5, 10);
-    camera.lookAt(0, 0, 0);
+    dummy = new THREE.Object3D();
 
-    // Orbit controls
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
+    orbit = new OrbitControls(camera, canvasEl);
+    orbit.enableZoom = false;
+    orbit.enablePan = false;
+    orbit.minPolarAngle = .1 * Math.PI;
+    orbit.maxPolarAngle = .9 * Math.PI;
+    orbit.autoRotate = true;
+    orbit.autoRotateSpeed = 19;
+    orbit.enableDamping = true;
 
-    // Event listener for throwing boxes
-    window.addEventListener('dblclick', throwBoxes);
 
-    // GUI
-    const gui = new dat.GUI();
-    gui.add(params, 'gravity', 0, 20).onChange(value => world.gravity.set(0, -value, 0));
-    gui.add(params, 'throwForce', 1, 30);
-}
+    for (let i = 0; i < 6; i++) {
+        const body = new CANNON.Body({
+            mass: 0,
+            shape: new CANNON.Plane(),
+        });
+        physicsWorld.addBody(body);
 
-function createContainer() {
-    const wallGeometry = new THREE.BoxGeometry(params.containerSize, 0.1, params.containerSize);
-    const wallMaterial = new THREE.MeshBasicMaterial({ color: 0x808080, transparent: true, opacity: 0.5 });
-
-    // Bottom
-    const bottomMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-    scene.add(bottomMesh);
-    const bottomBody = new CANNON.Body({ mass: 0 });
-    bottomBody.addShape(new CANNON.Plane());
-    bottomBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-    world.addBody(bottomBody);
-
-    // Top
-    const topMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-    topMesh.position.y = params.containerSize;
-    scene.add(topMesh);
-    const topBody = new CANNON.Body({ mass: 0 });
-    topBody.addShape(new CANNON.Plane());
-    topBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
-    topBody.position.set(0, params.containerSize, 0);
-    world.addBody(topBody);
-
-    // Sides
-    for (let i = 0; i < 4; i++) {
-        const sideMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-        sideMesh.rotation.x = Math.PI / 2;
-        sideMesh.position.y = params.containerSize / 2;
+        const posSign = i % 2 ? 1 : (-1);
         if (i < 2) {
-            sideMesh.position.z = (i === 0 ? 1 : -1) * params.containerSize / 2;
+            body.position.x = posSign * .5 * params.containerSize;
+            body.quaternion.setFromEuler(0, -posSign * Math.PI / 2, 0);
+        } else if (i < 4) {
+            body.position.y = posSign * .5 * params.containerSize;
+            body.quaternion.setFromEuler(posSign * Math.PI / 2, 0, 0);
         } else {
-            sideMesh.rotation.y = Math.PI / 2;
-            sideMesh.position.x = (i === 2 ? 1 : -1) * params.containerSize / 2;
+            body.position.z = posSign * .5 * params.containerSize;
+            if (i > 4) {
+                body.quaternion.setFromEuler(0, Math.PI, 0);
+            }
         }
-        scene.add(sideMesh);
-
-        const sideBody = new CANNON.Body({ mass: 0 });
-        sideBody.addShape(new CANNON.Plane());
-        if (i < 2) {
-            sideBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), (i === 0 ? 1 : -1) * Math.PI / 2);
-            sideBody.position.set(0, params.containerSize / 2, (i === 0 ? 1 : -1) * params.containerSize / 2);
-        } else {
-            sideBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), (i === 2 ? 1 : -1) * Math.PI / 2);
-            sideBody.position.set((i === 2 ? 1 : -1) * params.containerSize / 2, params.containerSize / 2, 0);
-        }
-        world.addBody(sideBody);
     }
-}
 
-function createBoxes() {
-    const boxShape = new CANNON.Box(new CANNON.Vec3(params.boxSize / 2, params.boxSize / 2, params.boxSize / 2));
-    const boxGeometry = new THREE.BoxGeometry(params.boxSize, params.boxSize, params.boxSize);
-    const boxMaterial = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+    boxMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        visible: false
+    })
+    const boxGeometry = new RoundedBoxGeometry(params.boxSize, params.boxSize, params.boxSize, 2, .2 * params.boxSize);
+
+    instancedBoxesMesh = new THREE.InstancedMesh(boxGeometry, boxMaterial, params.boxesNumber);
+    scene.add(instancedBoxesMesh);
 
     for (let i = 0; i < params.boxesNumber; i++) {
-        const boxBody = new CANNON.Body({ mass: 1, shape: boxShape });
-        const x = (Math.random() - 0.5) * params.containerSize;
-        const y = Math.random() * params.containerSize + params.containerSize / 2;
-        const z = (Math.random() - 0.5) * params.containerSize;
-        boxBody.position.set(x, y, z);
-        world.addBody(boxBody);
-        boxes.push(boxBody);
-
-        const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
-        scene.add(boxMesh);
-        boxMeshes.push(boxMesh);
+        boxesBodies[i] = new CANNON.Body({
+            mass: 1,
+            shape: new CANNON.Box(new CANNON.Vec3(.6 * params.boxSize, .6 * params.boxSize, .6 * params.boxSize)),
+        });
+        physicsWorld.addBody(boxesBodies[i]);
     }
+
+    const wallGeometry = new THREE.BoxGeometry(params.containerSize, params.containerSize, params.containerSize);
+    const wallEdges = new THREE.EdgesGeometry(wallGeometry);
+    const wallLine = new THREE.LineSegments(wallEdges, new THREE.LineBasicMaterial({color: 0x000000}));
+    scene.add(wallLine);
+}
+
+function initPhysics() {
+    physicsWorld = new CANNON.World({
+        allowSleep: true,
+        gravity: new CANNON.Vec3(0, -params.gravity, 0),
+    })
+    physicsWorld.defaultContactMaterial.friction = .1;
+    physicsWorld.defaultContactMaterial.restitution = .9;
+}
+
+
+function render() {
+
+    orbit.update();
+
+    physicsWorld.fixedStep();
+
+    for (let i = 0; i < params.boxesNumber; i++) {
+        dummy.position.copy(boxesBodies[i].position);
+        dummy.quaternion.copy(boxesBodies[i].quaternion);
+        dummy.updateMatrix();
+        instancedBoxesMesh.setMatrixAt(i, dummy.matrix);
+    }
+    instancedBoxesMesh.instanceMatrix.needsUpdate = true;
+
+    const gravity = new THREE.Vector3(0, -params.gravity, 0);
+    gravity.applyQuaternion(camera.quaternion);
+    physicsWorld.gravity = new CANNON.Vec3(gravity.x, gravity.y, gravity.z);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
 }
 
 function throwBoxes() {
-    boxes.forEach(box => {
-        const force = params.throwForce;
-        box.applyImpulse(
-            new CANNON.Vec3((Math.random() - 0.5) * force, 
-                            (Math.random() - 0.5) * force, 
-                            (Math.random() - 0.5) * force),
-            box.position
+    boxesBodies.forEach(body => {
+        const force = 7;
+        body.applyImpulse(
+            new CANNON.Vec3(
+                Math.random() > .5 ? -force : force,
+                Math.random() > .5 ? -force : force,
+                Math.random() > .5 ? -force : force
+            ),
         );
     });
 }
 
-function animate() {
-    requestAnimationFrame(animate);
-
-    world.step(1 / 60);
-
-    for (let i = 0; i < boxes.length; i++) {
-        boxMeshes[i].position.copy(boxes[i].position);
-        boxMeshes[i].quaternion.copy(boxes[i].quaternion);
-    }
-
-    renderer.render(scene, camera);
-}
-
-init();
-animate();
-
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+function updateSceneSize() {
+    camera.aspect = containerEl.clientWidth / containerEl.clientHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
+}

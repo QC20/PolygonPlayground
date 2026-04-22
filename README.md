@@ -2,6 +2,12 @@
 
 PolygonPlayground is an interactive 3D physics simulation that brings geometric shapes to life in your browser. This project showcases the intersection of design and technology, offering a playful and engaging experience for users to explore the dynamic behavior of polygons in a virtual environment.
 
+<p align="center">
+  <img src="Polygon-playground-example.gif" alt="PolygonPlayground demo" width="25%">
+  <br>
+  <em>Rounded boxes tumbling inside a wireframe cube, driven by real-time physics.</em>
+</p>
+
 ## Features
 
 - Real-time 3D physics simulation
